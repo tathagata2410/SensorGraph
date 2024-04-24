@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Graph Display</title>
+  <!-- Include Chart.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Include Handsontable library -->
+  <script src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css" rel="stylesheet">
+  <style>
+    /* CSS styles for buttons */
+    .btn {
+      padding: 10px 20px;
+      margin: 10px;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      color: white;
+      font-size: 16px;
+    }
+
+    .btn-primary {
+      background-color: #007bff; /* Blue color for primary button */
+    }
+
+    .btn-success {
+      background-color: #28a745; /* Green color for success button */
+    }
+
+    .btn-danger {
+      background-color: #dc3545; /* Red color for danger button */
+    }
+
+    .btn-warning {
+      background-color: #ffc107; /* Yellow color for warning button */
+    }
+
+    /* Styles for the spreadsheet container */
+    #spreadsheetContainer {
+      margin-top: 20px;
+      width: 80%;
+      margin: 20px auto; /* Center the spreadsheet */
+    }
+
+    /* Handsontable row and column colors */
+    .htRow {
+      background-color: #f0f0f0; /* Light gray background for rows */
+    }
+
+    .htColumnHeader {
+      background-color: #007bff; /* Blue background for column headers */
+      color: white; /* White text color for column headers */
+    }
+
+    /* Additional styles */
+    #buttonContainer {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: lightyellow;
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .squareBtn {
+      width: 70px; /* Increased button width */
+      height: 70px; /* Increased button height */
+      margin: 5px;
+      border-radius: 50%; /* Circular button */
+      cursor: pointer;
+    }
+
+    /* Styles for the Bluetooth button */
+    #bluetoothBtn {
+      padding: 15px;
+      background-color: #007bff; /* Blue color for Bluetooth button */
+      border-radius: 50%;
+      color: white;
+      font-size: 18px;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* Popup styles */
+    .popup {
+      display: none;
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #ffffff;
+      border: 1px solid #cccccc;
+      padding: 20px;
+      border-radius: 10px;
+      z-index: 9999;
+    }
+
+    .popup-content {
+      text-align: center;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Graph Display</h1>
+  <div style="width: 80%; margin: auto;">
+    <canvas id="myChart" style="height: 300px;"></canvas> <!-- Decreased height of the graph -->
+  </div>
+
+  <!-- Range slider for changing scan rate -->
+  <label for="scanRateSlider">Scan Rate (mV/s):</label>
+  <input type="range" id="scanRateSlider" min="0" max="200" value="100" step="1" onchange="updateScanRate(this.value)">
+  <span id="scanRateValue">100</span>
+  <br>
+
+  <!-- Range slider for changing voltage range -->
+  <label for="voltageRangeSlider">Voltage Range:</label>
+  <input type="range" id="voltageRangeSlider" min="-5" max="5" value="0" step="0.1" onchange="updateVoltageRange(this.value)">
+  <span id="voltageRangeValue">0</span>
+  <br>
+
+  <!-- Range slider for changing number of scans -->
+  <label for="numScansSlider">Number of Scans:</label>
+  <input type="range" id="numScansSlider" min="1" max="100" value="50" step="1" onchange="updateNumScans(this.value)">
+  <span id="numScansValue">50</span>
+  <br>
+
+  <!-- Start/Pause button -->
+  <button class="btn btn-primary" id="startPauseBtn" onclick="startPause()">Start/Pause</button>
+
+  <!-- Reset button -->
+  <button class="btn btn-warning" onclick="resetBrowser()">Reset</button>
+
+  <!-- Input for file name and Save button -->
+  <input type="text" id="fileNameInput" placeholder="Enter file name">
+  <button class="btn btn-primary" onclick="saveToFile()">Save</button>
+
+  <!-- Button to transfer data to spreadsheet -->
+  <button class="btn btn-primary" onclick="transferDataToSheet()">Transfer Data</button>
+
+  <!-- Spreadsheet container -->
+  <div id="spreadsheetContainer"></div>
+
+  <!-- Custom message -->
+  <div style="text-align: center; margin: 20px 0;">
+    Contact Tathagata Ghosh at tathagata.nita@gmail.com
+  </div>
+
+  <!-- Button container for E0, Ei, Ef, Estep buttons with input fields -->
+  <div id="buttonContainer">
+    <div>
+      <label for="e0Input">E0 (mV):</label>
+      <input type="number" id="e0Input" class="inputField">
+    </div>
+    <div>
+      <label for="eiInput">Ei (mV):</label>
+      <input type="number" id="eiInput" class="inputField">
+    </div>
+    <div>
+      <label for="efInput">Ef (mV):</label>
+      <input type="number" id="efInput" class="inputField">
+    </div>
+    <div>
+      <label for="estepInput">Estep (2mV):</label>
+      <input type="number" id="estepInput" class="inputField">
+    </div>
+  </div>
+
+  <!-- Bluetooth button -->
+  <button id="bluetoothBtn" onclick="openBluetoothPopup()">Bluetooth</button>
+
+  <!-- Bluetooth popup -->
+  <div id="bluetoothPopup" class="popup">
+    <span class="close-btn" onclick="closeBluetoothPopup()">&times;</span>
+    <div class="popup-content">
+      <h2>Bluetooth Settings</h2>
+      <!-- Add your Bluetooth connection code here -->
+      <form>
+        <button>Connect with BLE device</button>
+      </form>
+      <script>
+        var deviceName = 'Palm'
+
+        function isWebBluetoothEnabled() {
+          if (!navigator.bluetooth) {
+            console.log('Web Bluetooth API is not available in this browser!')
+            return false
+          }
+
+          return true
+        }
+
+        function getDeviceInfo() {
+          let options = {
+            // acceptAllDevices: true // Option to accept all devices
+            "filters": [
+              { "name": deviceName }
+            ]
+          }
+
+          console.log('Requesting Bluetooth Device...')
+          navigator.bluetooth.requestDevice(options).then(device => {
+            console.log('> Name: ' + device.name)
+          }).catch(error => {
+            console.log('Argh! ' + error)
+          })
+        }
+
+        document.querySelector('form').addEventListener('submit', function(event) {
+          event.stopPropagation()
+          event.preventDefault()
+
+          if (isWebBluetoothEnabled()) {
+            getDeviceInfo()
+          }
+        })
+      </script>
+    </div>
+  </div>
+
+  <!-- Include your JavaScript code here -->
+  <script>
+    const labels = [];
+    const dataValues = [];
+    let currentScanRate = 100; // Default scan rate value
+    let currentVoltageRange = 0; // Default voltage range value
+    let currentNumScans = 50; // Default number of scans value
+    let isPaused = false;
+    let dataUpdateInterval;
+
+    const ctx = document.getElementById('myChart').getContext('2d');
+    const myChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Sensor Data',
+          data: dataValues,
+          fill: false,
+          borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1
+        }]
+      },
+      options: {
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Sensor Value'
+            }
+          }
+        }
+      }
+    });
+
+    // Function to open Bluetooth popup
+    function openBluetoothPopup() {
+      document.getElementById('bluetoothPopup').style.display = 'block';
+    }
+
+    // Function to close Bluetooth popup
+    function closeBluetoothPopup() {
+      document.getElementById('bluetoothPopup').style.display = 'none';
+    }
+
+    // Function to update scan rate
+    function updateScanRate(value) {
+      currentScanRate = parseInt(value);
+      document.getElementById('scanRateValue').textContent = value;
+    }
+
+    // Function to update voltage range
+    function updateVoltageRange(value) {
+      currentVoltageRange = parseFloat(value);
+      document.getElementById('voltageRangeValue').textContent = value;
+    }
+
+    // Function to update number of scans
+    function updateNumScans(value) {
+      currentNumScans = parseInt(value);
+      document.getElementById('numScansValue').textContent = value;
+    }
+
+    // Function to start or pause data update
+    function startPause() {
+      isPaused = !isPaused;
+      if (isPaused) {
+        clearInterval(dataUpdateInterval);
+        document.getElementById('startPauseBtn').textContent = 'Start';
+      } else {
+        updateData();
+        document.getElementById('startPauseBtn').textContent = 'Pause';
+      }
+    }
+
+    // Function to reset browser
+    function resetBrowser() {
+      window.location.reload();
+    }
+
+    // Function to save data to file (example function)
+    function saveToFile() {
+      const fileName = document.getElementById('fileNameInput').value;
+      if (fileName.trim() !== '') {
+        alert('Data saved to file: ' + fileName);
+      } else {
+        alert('Please enter a valid file name.');
+      }
+    }
+
+    // Function to transfer data from graph to spreadsheet
+    function transferDataToSheet() {
+      // Get data from your graph (labels and dataValues arrays)
+      const graphData = [];
+      for (let i = 0; i < labels.length; i++) {
+        graphData.push([labels[i], dataValues[i]]);
+      }
+
+      // Set Handsontable data
+      hot.loadData(graphData);
+    }
+
+    // Initialize Handsontable
+    const container = document.getElementById('spreadsheetContainer');
+    const hot = new Handsontable(container, {
+      data: [], // Initial empty data
+      rowHeaders: true,
+      colHeaders: true,
+      contextMenu: true,
+      minSpareRows: 1, // Allow adding new rows
+      columns: [
+        { type: 'text' }, // You can specify column types as needed
+        { type: 'numeric' },
+        // Add more columns as needed for your data
+      ],
+      // Handsontable styling options
+      rowHeaders: true,
+      colHeaders: true,
+      rowHeaderWidth: 80,
+      colWidths: 100,
+      columnSorting: true,
+      readOnly: true, // Make the spreadsheet read-only
+      cell: [
+        { row: 0, col: 0, className: 'htRow' }, // Apply row color
+        { row: 0, col: 0, className: 'htColumnHeader' } // Apply column color
+        // Add more cell styles as needed
+      ]
+    });
+
+    // Continuous data update
+    function updateData() {
+      dataUpdateInterval = setInterval(() => {
+        if (!isPaused) {
+          const newDataPoint = Math.floor(Math.random() * currentScanRate); // Simulated sensor value within current scan rate
+          const currentTime = new Date().toLocaleTimeString(); // Simulated timestamp
+
+          labels.push(currentTime);
+          dataValues.push(newDataPoint);
+
+          if (labels.length > currentNumScans) {
+            labels.shift();
+            dataValues.shift();
+          }
+
+          myChart.update();
+        }
+      }, 1000); // Update every second (adjust as needed)
+    }
+
+    // Start updating data on page load
+    updateData();
+
+    // Stop updating data after 30 seconds
+    setTimeout(() => {
+      clearInterval(dataUpdateInterval);
+    }, 30000); // Stop after 30 seconds
+
+    // Function to set E0 value
+    function setE0() {
+      const e0Value = document.getElementById('e0Input').value;
+      // Perform actions with e0Value as needed
+      console.log('E0 Value:', e0Value);
+    }
+
+    // Function to set Ei value
+    function setEi() {
+      const eiValue = document.getElementById('eiInput').value;
+      // Perform actions with eiValue as needed
+      console.log('Ei Value:', eiValue);
+    }
+
+    // Function to set Ef value
+    function setEf() {
+      const efValue = document.getElementById('efInput').value;
+      // Perform actions with efValue as needed
+      console.log('Ef Value:', efValue);
+    }
+
+    // Function to set Estep value
+    function setEstep() {
+      const estepValue = document.getElementById('estepInput').value;
+      // Perform actions with estepValue as needed
+      console.log('Estep Value:', estepValue);
+    }
+  </script>
+</body>
+
+</html>
